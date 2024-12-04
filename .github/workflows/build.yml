@@ -60,7 +60,7 @@ jobs:
       - name: Build Electron App
         run: npm run build:app
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Filter and Prepare Artifacts
         run: |
@@ -111,4 +111,4 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
