@@ -1,47 +1,85 @@
-name: Build
+name: Electron Cross-Platform Build
 
 on:
   push:
     tags:
-      - "v*" # Trigger on version tags
-    paths-ignore:
-      - "**.md"
-      - "**.spec.js"
-      - ".idea"
-      - ".vscode"
-      - ".dockerignore"
-      - "Dockerfile"
-      - ".gitignore"
-      - ".github/**"
-      - "!.github/workflows/build.yml"
+      - "v*" # 触发条件：推送版本标签时
+
 jobs:
   build:
+    name: Build Electron App
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: windows
 
     steps:
-      - name: Checkout Code
+      - name: Check out Git repository
         uses: actions/checkout@v3
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: "18"
+          cache: "npm"
+
+      - name: Get Package Version
+        id: package-version
+        run: |
+          echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build Release Files
+      - name: Build Electron App
         run: npm run build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: release_on_${{ matrix. os }}
-          path: release/
+          name: ${{ matrix.platform }}-build
+          path: |
+            release/${{ steps.package-version.outputs.VERSION }}/*.exe
+            release/${{ steps.package-version.outputs.VERSION }}/*.dmg
+            release/${{ steps.package-version.outputs.VERSION }}/*.AppImage
+            release/${{ steps.package-version.outputs.VERSION }}/*.zip
           retention-days: 5
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Get Package Version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.package-version.outputs.VERSION }}
+          name: Release ${{ steps.package-version.outputs.VERSION }}
+          files: |
+            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.exe
+            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.dmg
+            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.AppImage
+            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.zip
+          draft: false
+          prerelease: false
