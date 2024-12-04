@@ -31,7 +31,7 @@ jobs:
         run: npm install
 
       - name: Build Stage Environment
-        run: bun run build --mode stage
+        run: npm run build --mode stage
         env:
           NODE_ENV: staging
 
@@ -41,7 +41,7 @@ jobs:
           tar -czvf artifacts/stage/dist-stage.tar.gz -C dist .
 
       - name: Build Production Environment
-        run: bun run build --mode production
+        run: npm run build --mode production
         env:
           NODE_ENV: production
 
