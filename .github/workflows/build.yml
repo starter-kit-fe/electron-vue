@@ -24,10 +24,10 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: "18"
+          bun-version: latest
 
       - name: Get Package Version
         id: package-version
@@ -36,10 +36,10 @@ jobs:
         shell: bash
 
       - name: Install Dependencies
-        run: npm install
+        run: bun install
 
       - name: Build Electron App
-        run: npm run build:app
+        run: bun run build:app
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
@@ -60,6 +60,11 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
 
       - name: Get Package Version
         id: package-version
