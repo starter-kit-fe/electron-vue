@@ -14,53 +14,10 @@ on:
       - ".gitignore"
       - ".github/**"
       - "!.github/workflows/build.yml"
-
 jobs:
-  build-web-artifacts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Stage Environment
-        run: npm run build --mode stage
-        env:
-          NODE_ENV: staging
-
-      - name: Compress Stage Artifacts
-        run: |
-          mkdir -p artifacts/stage
-          tar -czvf artifacts/stage/dist-stage.tar.gz -C dist .
-
-      - name: Build Production Environment
-        run: npm run build --mode production
-        env:
-          NODE_ENV: production
-
-      - name: Compress Production Artifacts
-        run: |
-          mkdir -p artifacts/production
-          tar -czvf artifacts/production/dist-production.tar.gz -C dist .
-
-      - name: Upload Web Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: web-artifacts
-          path: |
-            artifacts/stage/dist-stage.tar.gz
-            artifacts/production/dist-production.tar.gz
-          retention-days: 5
-
-  build-electron-apps:
+  build:
     runs-on: ${{ matrix.os }}
+
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -78,34 +35,13 @@ jobs:
         run: npm install
 
       - name: Build Release Files
-        run: npm run build:app
+        run: npm run build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Electron Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: release_on_${{ matrix.os }}
+          name: release_on_${{ matrix. os }}
           path: release/
           retention-days: 5
-
-  create-release:
-    needs: [build-web-artifacts, build-electron-apps]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-
-      - name: Prepare Release
-        run: |
-          mkdir -p release
-          cp -r artifacts/web-artifacts/* release/
-          cp -r artifacts/release_on_*/* release/
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            release/*
