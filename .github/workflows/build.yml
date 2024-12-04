@@ -3,15 +3,50 @@ name: Electron Cross-Platform Build
 on:
   push:
     tags:
-      - "v*" # 触发条件：推送版本标签时
+      - "v*" # Trigger when pushing version tags
 
 jobs:
-  build:
+  prepare-dist:
+    name: Prepare Dist Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Get Package Version
+        id: package-version
+        run: |
+          echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Dist
+        run: npm run build
+
+      - name: Compress Dist
+        run: |
+          tar -czvf dist-${{ steps.package-version.outputs.VERSION }}.tar.gz dist
+          mkdir -p artifact-dist
+          mv dist-${{ steps.package-version.outputs.VERSION }}.tar.gz artifact-dist/
+
+      - name: Upload Dist Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-package
+          path: artifact-dist/
+          retention-days: 5
+
+  build-app:
     name: Build Electron App
-    runs-on: ${{ matrix.os }}
+    needs: prepare-dist
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             platform: linux
@@ -20,6 +55,7 @@ jobs:
           - os: windows-latest
             platform: windows
 
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
@@ -36,17 +72,17 @@ jobs:
         shell: bash
 
       - name: Install Dependencies
-        run: bun install
+        run: npm ci
 
       - name: Build Electron App
-        run: bun run build:app
+        run: npm run build:app
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      - name: Upload Artifacts
+      - name: Upload App Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.platform }}-build
+          name: ${{ matrix.platform }}-app
           path: |
             release/${{ steps.package-version.outputs.VERSION }}/*.exe
             release/${{ steps.package-version.outputs.VERSION }}/*.dmg
@@ -55,16 +91,12 @@ jobs:
           retention-days: 5
 
   release:
-    needs: build
+    name: Create GitHub Release
+    needs: [prepare-dist, build-app]
     runs-on: ubuntu-latest
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
 
       - name: Get Package Version
         id: package-version
@@ -72,7 +104,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download Artifacts
+      - name: Download All Artifacts
         uses: actions/download-artifact@v3
         with:
           path: artifacts
@@ -83,10 +115,11 @@ jobs:
           tag_name: v${{ steps.package-version.outputs.VERSION }}
           name: Release ${{ steps.package-version.outputs.VERSION }}
           files: |
-            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.exe
-            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.dmg
-            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.AppImage
-            artifacts/**/${{ steps.package-version.outputs.VERSION }}/*.zip
+            artifacts/dist-package/dist-${{ steps.package-version.outputs.VERSION }}.tar.gz
+            artifacts/linux-app/**/${{ steps.package-version.outputs.VERSION }}/*.AppImage
+            artifacts/mac-app/**/${{ steps.package-version.outputs.VERSION }}/*.dmg
+            artifacts/windows-app/**/${{ steps.package-version.outputs.VERSION }}/*.exe
+            artifacts/*/release/${{ steps.package-version.outputs.VERSION }}/*.zip
           draft: false
           prerelease: false
         env:
