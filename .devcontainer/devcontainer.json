@@ -1,0 +1,18 @@
+{
+    "name": "node:v22.9.0",
+    "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+    "customizations": {},
+    "remoteUser": "root",
+    "mounts": [
+        "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
+    ],
+    "remoteEnv": {
+        "SSH_AUTH_SOCK": "/ssh-agent"
+    },
+    "postCreateCommand": "curl -fsSL https://bun.sh/install | bash",
+    "initializeCommand": "mkdir -p ${localEnv:HOME}/.ssh",
+    "runArgs": [
+        "--volume=/run/host-services/ssh-auth.sock:/ssh-agent",
+        "--network=host"
+    ]
+}
