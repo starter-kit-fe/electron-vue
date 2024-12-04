@@ -22,12 +22,9 @@ export default defineConfig(({ command, mode }) => {
   const isServe = command === 'serve'
   const isBuild = command === 'build'
   const sourcemap = isServe || !!process.env.VSCODE_DEBUG
-
+  process.env.VITE_APP_BUILD_TIME = dayjs().format("YYYY-MM-DD HH:mm:ss");
   return {
     base: env.VITE_APP_BASE_URL,
-    define: {
-      VITE_APP_BUILD_TIME: `"${dayjs().format("YYYY-MM-DD HH:mm:ss")}"`
-    },
     plugins: [
       vue(),
       vueDevTools(),

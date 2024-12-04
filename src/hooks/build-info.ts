@@ -14,7 +14,7 @@ export function useBuildInfo() {
 
     const printBuildInfo = () => {
         print(pkg.name, pkg.version);
-        print('build time', `${import.meta.env.VITE_APP_BUILD_TIME || new Date().toISOString()}`);
+        print('build time', `${import.meta.env.VITE_APP_BUILD_TIME}`);
     };
 
     return {

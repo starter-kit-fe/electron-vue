@@ -1,4 +1,4 @@
-name: Build
+name: Build and Release
 
 on:
   push:
@@ -13,11 +13,15 @@ on:
       - ".gitignore"
       - ".github/**"
       - "!.github/workflows/build.yml"
+    tags:
+      - "v*" # Trigger on version tags
+
+permissions:
+  contents: write # Allow writing to repository contents
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -35,13 +39,96 @@ jobs:
         run: npm install
 
       - name: Build Release Files
-        run: npm run build
+        run: npm run build:app
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifact
+      - name: Upload Client Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: release_on_${{ matrix. os }}
+          name: release_on_${{ matrix.os }}
           path: release/
           retention-days: 5
+
+  build_and_release:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Get Package Version
+        id: package-version
+        run: |
+          echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build Stage Environment
+        run: bun run build --mode stage
+        env:
+          NODE_ENV: staging
+
+      - name: Compress Stage Artifacts
+        run: |
+          mkdir -p artifacts/stage
+          tar -czvf artifacts/stage/dist-stage-${{ steps.package-version.outputs.VERSION }}.tar.gz -C dist .
+
+      - name: Build Production Environment
+        run: bun run build --mode production
+        env:
+          NODE_ENV: production
+
+      - name: Compress Production Artifacts
+        run: |
+          mkdir -p artifacts/production
+          tar -czvf artifacts/production/dist-production-${{ steps.package-version.outputs.VERSION }}.tar.gz -C dist .
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts
+          retention-days: 5
+
+  release:
+    needs: build_and_release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Get Package Version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts
+
+      - name: List Artifacts
+        run: |
+          ls -R artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*.tar.gz
+            release/**
+          name: Release ${{ steps.package-version.outputs.VERSION }}
+          draft: false
+          prerelease: false
