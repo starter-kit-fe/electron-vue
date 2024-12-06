@@ -24,5 +24,8 @@ release
 *.sln
 *.sw?
 
+
 # 忽略文件 
 bin
+.DS_Store
+dist-electron
