@@ -1,7 +1,8 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 
 const router = createRouter({
-    history: createWebHistory(import.meta.env.VITE_APP_BASE_URL),
+    // 使用hash 路由解决 electron 刷新空白问题 
+    history: createWebHashHistory(import.meta.env.VITE_APP_BASE_URL),
     routes: [
         {
             path: '/',
